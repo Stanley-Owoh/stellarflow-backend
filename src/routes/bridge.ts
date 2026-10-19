@@ -3,6 +3,7 @@ import prisma from "../lib/prisma";
 import { addValidatorSignature } from "../services/bridgeSignatureVerification";
 import { getBridgeQueueService } from "../services/bridgeQueueService";
 import { simulateMintTransaction } from "../services/bridgeMintingService";
+import { estimateBridgeFee } from "../controllers/bridgeFeeEstimateController";
 import { logger } from "../utils/logger";
 
 const router = Router();
@@ -477,5 +478,68 @@ router.post("/simulate", async (req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * @swagger
+ * /api/v1/bridge/estimate-fee:
+ *   post:
+ *     tags:
+ *       - Bridge
+ *     summary: Estimate cross-chain relayer execution fee
+ *     description: >
+ *       Estimates the relayer fee required to execute a cross-chain message on
+ *       the target network using F_relayer = Gas_target x P_gas x (1 + margin).
+ *       Gas prices are served from a background-refreshed cache.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [targetNetwork]
+ *             properties:
+ *               targetNetwork:
+ *                 type: string
+ *                 example: "1"
+ *               gasUnits:
+ *                 type: number
+ *                 example: 21000
+ *               payloadBytes:
+ *                 type: number
+ *                 example: 256
+ *               margin:
+ *                 type: number
+ *                 example: 0.1
+ *     responses:
+ *       '200':
+ *         description: Relayer fee estimate
+ *       '400':
+ *         description: Invalid request or unsupported target network
+ *   get:
+ *     tags:
+ *       - Bridge
+ *     summary: Estimate cross-chain relayer execution fee (query params)
+ *     parameters:
+ *       - in: query
+ *         name: targetNetwork
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: gasUnits
+ *         schema: { type: number }
+ *       - in: query
+ *         name: payloadBytes
+ *         schema: { type: number }
+ *       - in: query
+ *         name: margin
+ *         schema: { type: number }
+ *     responses:
+ *       '200':
+ *         description: Relayer fee estimate
+ *       '400':
+ *         description: Invalid request or unsupported target network
+ */
+router.post("/estimate-fee", estimateBridgeFee);
+router.get("/estimate-fee", estimateBridgeFee);
 
 export default router;

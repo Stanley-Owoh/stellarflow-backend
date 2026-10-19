@@ -49,6 +49,7 @@ import { systemHealthWatchdog } from "./services/systemHealthWatchdog";
 import { startAmmReserveDivergenceDetector } from "./services/ammReserveDivergenceDetector";
 import { redisOperationsWorker } from "./services/redisOperationsWorker";
 import { initializeBridgeServices, stopBridgeServices } from "./services/bridgeIntegration";
+import { getBridgeFeeEstimatorService } from "./services/bridgeFeeEstimatorService";
 import { VolatilityService } from "./services/volatility.service";
 import { ArbitrageScanner } from "./services/arbitrageScanner";
 import { storageMonitorService } from "./services/storageMonitorService";
@@ -262,6 +263,7 @@ app.get("/", (req, res) => {
         queueStats: "/api/v1/bridge/queue/stats",
         retry: "POST /api/v1/bridge/queue/retry",
         simulate: "POST /api/v1/bridge/simulate",
+        estimateFee: "POST /api/v1/bridge/estimate-fee",
       },
     },
   });
@@ -398,6 +400,7 @@ systemicRiskMonitor.stop();
     anchorSpreadProfiler.stop();
     treasuryGovernanceTimelockAuditExporter.stop();
     await stopBridgeServices();
+    getBridgeFeeEstimatorService().stop();
 
     marketStreamWss.close();
     await closeHttpServer();
@@ -631,6 +634,19 @@ httpServer.listen(PORT, async () => {
   } catch (err) {
     console.warn(
       "Cross-chain bridge services not started:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+
+  // Issue #1306 – warm the cross-chain relayer fee estimator cache. This runs
+  // independently of the event listener so the estimate endpoint is ready even
+  // when bridge ingestion is disabled.
+  try {
+    getBridgeFeeEstimatorService().start();
+    console.log(`💸 Bridge relayer fee estimator started`);
+  } catch (err) {
+    console.warn(
+      "Bridge relayer fee estimator not started:",
       err instanceof Error ? err.message : err,
     );
   }
